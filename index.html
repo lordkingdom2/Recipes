@@ -3,370 +3,498 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gourmet Grid | The Recipe App</title>
+    <title>Gourmet Grid | The Ultimate Archive</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg: #f8f8f8;
-            --text: #000000;
+            --bg: #f5f5f7;
+            --text: #1d1d1f;
             --accent: #d33c2a;
-            --grid: rgba(0,0,0,0.04);
+            --grid: rgba(0,0,0,0.03);
             --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --card-radius: 24px;
         }
 
-        * { box-sizing: border-box; font-family: 'Inter Tight', sans-serif; -webkit-font-smoothing: antialiased; }
+        * { box-sizing: border-box; font-family: 'Inter Tight', sans-serif; -webkit-font-smoothing: antialiased; outline: none; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); }
 
         /* CANVAS & PHYSICS */
-        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; background-image: radial-gradient(var(--grid) 2px, transparent 2px); background-size: 50px 50px; touch-action: none; }
+        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; background-image: radial-gradient(var(--grid) 2px, transparent 2px); background-size: 60px 60px; touch-action: none; }
         #viewport:active { cursor: grabbing; }
         #canvas { position: absolute; top: 0; left: 0; width: 10000px; height: 10000px; transform-origin: 0 0; will-change: transform; }
 
         /* UI ELEMENTS */
         header { position: fixed; top: 40px; left: 40px; z-index: 100; pointer-events: none; }
-        header h1 { font-weight: 800; font-size: clamp(24px, 4vw, 42px); margin: 0; letter-spacing: -2px; line-height: 0.9; }
+        header h1 { font-weight: 800; font-size: clamp(28px, 4vw, 48px); margin: 0; letter-spacing: -2px; line-height: 0.9; }
 
-        .fab-add { position: fixed; top: 40px; right: 40px; width: 60px; height: 60px; border-radius: 50%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 300; cursor: pointer; z-index: 100; transition: 0.3s var(--ease); box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; }
-        .fab-add:hover { background: var(--accent); transform: scale(1.1) rotate(90deg); }
+        .controls { position: fixed; top: 40px; right: 40px; display: flex; gap: 15px; z-index: 100; }
+        .fab { width: 60px; height: 60px; border-radius: 50%; background: #fff; color: #000; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; transition: 0.4s var(--ease); box-shadow: 0 15px 35px rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.05); }
+        .fab.dark { background: #000; color: #fff; font-size: 32px; font-weight: 300; }
+        .fab:hover { transform: translateY(-5px) scale(1.05); }
+        .fab.dark:hover { background: var(--accent); transform: translateY(-5px) scale(1.05) rotate(90deg); }
+
+        /* FILTER SIDEBAR */
+        #filter-sidebar { position: fixed; top: 0; left: -400px; width: 350px; height: 100vh; background: rgba(255,255,255,0.85); backdrop-filter: blur(25px); border-right: 1px solid rgba(0,0,0,0.05); z-index: 900; padding: 140px 40px 40px; transition: 0.6s var(--ease); box-shadow: 20px 0 50px rgba(0,0,0,0.05); overflow-y: auto; }
+        #filter-sidebar.open { left: 0; }
+        .filter-group { margin-bottom: 25px; }
+        .filter-group label { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #888; margin-bottom: 8px; }
+        .filter-group input[type="range"] { width: 100%; accent-color: var(--accent); }
+        .filter-group input[type="text"], .filter-group select { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid #ddd; background: transparent; font-size: 14px; font-weight: 600; }
+        .val-badge { color: var(--accent); }
 
         /* RECIPE CARDS */
-        .recipe-card { position: absolute; width: 320px; background: #fff; transition: transform 0.6s var(--ease); box-shadow: 0 20px 50px rgba(0,0,0,0.06); cursor: pointer; }
-        .recipe-card:hover { transform: translateY(-15px) scale(1.02); z-index: 10; }
-        .recipe-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+        .recipe-card { position: absolute; width: 340px; background: #fff; border-radius: var(--card-radius); transition: transform 0.6s var(--ease), opacity 0.4s; box-shadow: 0 20px 50px rgba(0,0,0,0.05); cursor: pointer; overflow: hidden; }
+        .recipe-card.hidden { opacity: 0; pointer-events: none; transform: scale(0.9); }
+        .recipe-card:hover { transform: translateY(-15px) scale(1.02); z-index: 10; box-shadow: 0 30px 60px rgba(0,0,0,0.1); }
+        .recipe-card img { width: 100%; height: 260px; object-fit: cover; }
         .card-info { padding: 25px; }
-        .card-title { font-size: 22px; font-weight: 800; margin: 0 0 10px 0; letter-spacing: -1px; }
-        .card-ingredients { font-size: 13px; color: #666; margin-bottom: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .card-meta { display: flex; justify-content: space-between; border-top: 1px solid #eee; padding-top: 15px; font-size: 12px; }
-        .card-meta b { display: block; font-size: 14px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .card-cat { color: var(--accent); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .card-rating { font-size: 14px; color: #ffcc00; }
+        .card-title { font-size: 24px; font-weight: 800; margin: 0 0 15px 0; letter-spacing: -1px; line-height: 1.1; }
+        .card-meta { display: flex; justify-content: space-between; border-top: 1px solid #f0f0f0; padding-top: 15px; font-size: 12px; color: #888; }
+        .card-meta b { display: block; font-size: 15px; color: #000; margin-top: 2px; }
 
-        /* OVERLAYS (Detail & Editor) */
+        /* OVERLAYS */
         .overlay { position: fixed; inset: 0; background: #fff; z-index: 1000; opacity: 0; pointer-events: none; transition: 0.5s var(--ease); overflow-y: auto; }
         .overlay.active { opacity: 1; pointer-events: auto; }
         .close-btn { position: fixed; top: 40px; right: 40px; background: #000; color: #fff; border: none; padding: 15px 30px; border-radius: 50px; cursor: pointer; font-weight: 700; z-index: 1100; transition: 0.3s; }
         .close-btn:hover { background: var(--accent); transform: scale(1.05); }
-        .overlay-content { max-width: 900px; margin: 0 auto; padding: 120px 40px; }
+        .overlay-content { max-width: 1000px; margin: 0 auto; padding: 120px 40px; }
+
+        /* DETAIL VIEW */
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
+        .action-row { display: flex; gap: 10px; margin-top: 30px; }
+        .btn-edit, .btn-delete { padding: 10px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; border: none; transition: 0.3s; }
+        .btn-edit { background: #eee; color: #000; } .btn-edit:hover { background: #ddd; }
+        .btn-delete { background: #ffebee; color: #c62828; } .btn-delete:hover { background: #ffcdd2; }
+        .servings-box { background: #f9f9f9; padding: 25px; border-radius: var(--card-radius); margin: 30px 0; display: flex; justify-content: space-between; align-items: center; border: 1px solid #eee; }
+        .servings-input { font-size: 32px; font-weight: 800; width: 60px; border: none; background: transparent; border-bottom: 2px solid #000; border-radius: 0; text-align: center; }
 
         /* EDITOR FORM */
+        .ed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .form-group { margin-bottom: 25px; }
         .form-group label { display: block; font-size: 12px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; color: #888; }
-        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; background: #fdfdfd; transition: border 0.3s; }
-        input:focus, textarea:focus { outline: none; border-color: #000; }
+        input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; background: #fafafa; transition: 0.3s; }
+        input:focus, textarea:focus { border-color: #000; background: #fff; }
+        .image-upload-wrapper { position: relative; width: 100%; height: 200px; border: 2px dashed #ddd; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; background: #fafafa; }
+        .image-upload-wrapper img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: 0.3s; }
+        .image-upload-wrapper span { font-weight: 700; color: #888; }
         
         .ing-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .ing-row input[type="number"] { flex: 1; }
-        .ing-row input.unit { flex: 1; }
-        .ing-row input.name { flex: 3; }
+        .ing-row input.amount { flex: 1; } .ing-row input.unit { flex: 1; } .ing-row input.name { flex: 3; }
         
-        .btn-black { background: #000; color: #fff; border: none; padding: 15px 30px; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.3s; width: 100%; }
-        .btn-black:hover { background: var(--accent); }
-        .btn-outline { background: transparent; color: #000; border: 2px solid #000; padding: 10px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; }
-
-        /* INGREDIENT LIST (DETAIL) */
-        .ing-list-item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; font-size: 18px; }
-        .ing-list-item:last-child { border-bottom: none; }
-        .ing-amount { font-weight: 800; width: 120px; }
-
+        .btn-primary { background: #000; color: #fff; border: none; padding: 18px 30px; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.3s; width: 100%; margin-top: 20px; }
+        .btn-primary:hover { background: var(--accent); }
     </style>
 </head>
 <body>
 
-<header><h1>THE<br>GOURMET<br>GRID</h1></header>
+<header><h1>RECIPE<br>ARCHIVE</h1></header>
 
-<button class="fab-add" onclick="openEditor()">+</button>
+<div class="controls">
+    <button class="fab" onclick="toggleFilter()" title="Filter">⚲</button>
+    <button class="fab dark" onclick="openEditor()" title="Neues Rezept">+</button>
+</div>
+
+<div id="filter-sidebar">
+    <h2 style="font-weight: 800; margin-top: 0;">Filter</h2>
+    <div class="filter-group">
+        <label>Suche</label>
+        <input type="text" id="f-search" placeholder="Name oder Zutat..." oninput="applyFilters()">
+    </div>
+    <div class="filter-group">
+        <label>Schwierigkeit</label>
+        <select id="f-diff" onchange="applyFilters()">
+            <option value="all">Alle</option><option value="1">Leicht</option><option value="2">Mittel</option><option value="3">Schwer</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Max Dauer <span class="val-badge" id="val-time">120m</span></label>
+        <input type="range" id="f-time" min="10" max="240" step="10" value="240" oninput="document.getElementById('val-time').innerText = this.value+'m'; applyFilters()">
+    </div>
+    <div class="filter-group">
+        <label>Min Protein <span class="val-badge" id="val-prot">0g</span></label>
+        <input type="range" id="f-prot" min="0" max="100" step="5" value="0" oninput="document.getElementById('val-prot').innerText = this.value+'g'; applyFilters()">
+    </div>
+    <div class="filter-group">
+        <label>Min Rating <span class="val-badge" id="val-rating">1★</span></label>
+        <input type="range" id="f-rating" min="1" max="5" step="1" value="1" oninput="document.getElementById('val-rating').innerText = this.value+'★'; applyFilters()">
+    </div>
+</div>
 
 <div id="viewport"><div id="canvas"></div></div>
 
 <div id="detail-overlay" class="overlay">
-    <button class="close-btn" onclick="closeOverlay('detail-overlay')">ZURÜCK</button>
+    <button class="close-btn" onclick="closeOverlay('detail-overlay')">SCHLIESSEN</button>
     <div class="overlay-content" id="detail-content"></div>
 </div>
 
 <div id="editor-overlay" class="overlay">
     <button class="close-btn" onclick="closeOverlay('editor-overlay')">ABBRECHEN</button>
     <div class="overlay-content">
-        <h1 style="font-size: 48px; margin-bottom: 40px; letter-spacing: -2px;">Neues Rezept</h1>
-        
-        <div class="form-group"><label>Rezept Name</label><input type="text" id="ed-name" placeholder="z.B. Trüffel-Pasta"></div>
-        <div style="display: flex; gap: 20px;">
-            <div class="form-group" style="flex: 1;"><label>Kategorie</label><input type="text" id="ed-cat" placeholder="z.B. Pasta"></div>
-            <div class="form-group" style="flex: 1;"><label>Bild URL</label><input type="text" id="ed-img" placeholder="https://..."></div>
+        <h1 style="font-size: 48px; margin-bottom: 40px; letter-spacing: -2px;" id="ed-title">Neues Rezept</h1>
+        <input type="hidden" id="ed-id"> <div class="ed-grid">
+            <div class="form-group">
+                <label>Bild hochladen</label>
+                <div class="image-upload-wrapper" onclick="document.getElementById('ed-file').click()">
+                    <span>Klicken zum Auswählen</span>
+                    <img id="ed-img-preview">
+                </div>
+                <input type="file" id="ed-file" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                <input type="hidden" id="ed-img-base64"> </div>
+            <div>
+                <div class="form-group"><label>Rezept Name</label><input type="text" id="ed-name"></div>
+                <div class="form-group"><label>Kategorie</label><input type="text" id="ed-cat"></div>
+            </div>
         </div>
-        <div style="display: flex; gap: 20px;">
-            <div class="form-group" style="flex: 1;"><label>Dauer (Min)</label><input type="number" id="ed-time" value="30"></div>
-            <div class="form-group" style="flex: 1;"><label>Kalorien (pro Port.)</label><input type="number" id="ed-cal" value="600"></div>
-            <div class="form-group" style="flex: 1;"><label>Protein (g)</label><input type="number" id="ed-prot" value="25"></div>
-            <div class="form-group" style="flex: 1;"><label>Basis-Portionen</label><input type="number" id="ed-base-servings" value="2"></div>
+
+        <div class="ed-grid">
+            <div class="form-group"><label>Dauer (Min)</label><input type="number" id="ed-time"></div>
+            <div class="form-group"><label>Schwierigkeit (1-3)</label><input type="number" id="ed-diff" min="1" max="3" value="1"></div>
+            <div class="form-group"><label>Sterne (1-5)</label><input type="number" id="ed-rating" min="1" max="5" value="5"></div>
+            <div class="form-group"><label>Basis-Portionen</label><input type="number" id="ed-servings" value="2"></div>
+        </div>
+        
+        <div class="ed-grid">
+            <div class="form-group"><label>Kalorien (pro Port.)</label><input type="number" id="ed-cal"></div>
+            <div class="form-group"><label>Protein (g)</label><input type="number" id="ed-prot"></div>
         </div>
 
         <div class="form-group">
-            <label>Zutaten (Menge | Einheit | Zutat)</label>
-            <div id="ed-ingredients-container">
-                </div>
-            <button class="btn-outline" style="margin-top: 10px;" onclick="addIngredientRow()">+ Zutat hinzufügen</button>
+            <label>Zutaten (Menge | Einheit | Name)</label>
+            <div id="ed-ingredients"></div>
+            <button class="btn-edit" style="width:100%; margin-top:10px;" onclick="addIngredientRow()">+ Zutat hinzufügen</button>
         </div>
 
         <div class="form-group">
             <label>Zubereitung</label>
-            <textarea id="ed-instructions" rows="8" placeholder="1. Wasser kochen..."></textarea>
+            <textarea id="ed-instructions" rows="8"></textarea>
         </div>
 
-        <button class="btn-black" onclick="saveRecipe()">REZEPT SPEICHERN</button>
+        <button class="btn-primary" onclick="saveRecipe()" id="ed-save-btn">REZEPT SPEICHERN</button>
     </div>
 </div>
 
 <script type="module">
-    // Firebase CDN Imports für Browser
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // DEINE FIREBASE CONFIG
     const firebaseConfig = {
         apiKey: "AIzaSyD9K2SaIsFjH3rgdn3OlAJCXSTmp54Z7EU",
         authDomain: "recipes-eb373.firebaseapp.com",
         projectId: "recipes-eb373",
         storageBucket: "recipes-eb373.firebasestorage.app",
         messagingSenderId: "598463014390",
-        appId: "1:598463014390:web:2af8dfd831471f6fcb13d7",
-        measurementId: "G-3FF8RV88JC"
+        appId: "1:598463014390:web:2af8dfd831471f6fcb13d7"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Globale Variablen an window hängen, damit HTML-Buttons sie aufrufen können
     window.recipes = [];
     let camX = window.innerWidth/2, camY = window.innerHeight/2;
     let targetCamX = window.innerWidth/2, targetCamY = window.innerHeight/2;
     let currentScale = 0.5;
 
-    // 1. REZEPTE LADEN
+    // --- DATEN LADEN & RENDERN ---
     window.loadRecipes = async function() {
         const querySnapshot = await getDocs(collection(db, "recipes"));
         window.recipes = [];
-        querySnapshot.forEach((doc) => {
-            window.recipes.push({ id: doc.id, ...doc.data() });
-        });
+        querySnapshot.forEach((doc) => window.recipes.push({ id: doc.id, ...doc.data() }));
         renderCanvas();
+        applyFilters(); // Filter sofort anwenden
     }
 
-    // 2. CANVAS RENDERN
     function renderCanvas() {
         const container = document.getElementById('canvas');
         container.innerHTML = '';
 
         window.recipes.forEach(r => {
-            // Extrahiere nur die Namen der Zutaten für die Vorschau-Karte
-            const zutatenNamen = (r.zutaten || []).map(z => z.name).join(', ');
-
             const card = document.createElement('div');
             card.className = 'recipe-card';
-            // Setze Rezept an gespeicherte Position oder ins Zentrum
+            card.id = `card-${r.id}`;
             card.style.left = `${r.xPos || 500}px`;
             card.style.top = `${r.yPos || 500}px`;
             
+            const stars = "★".repeat(r.rating || 5) + "☆".repeat(5 - (r.rating || 5));
+            const imgSrc = r.bildBase64 || 'https://images.unsplash.com/photo-1495195134817-a1a2807facx1?auto=format&fit=crop&q=80&w=800';
+
             card.innerHTML = `
-                <img src="${r.bildUrl || 'https://images.unsplash.com/photo-1495195134817-a1a2807facx1?auto=format&fit=crop&q=80&w=800'}" loading="lazy">
+                <img src="${imgSrc}" loading="lazy">
                 <div class="card-info">
-                    <div style="color: var(--accent); font-size: 10px; font-weight: 800; text-transform: uppercase; margin-bottom: 5px;">${r.kategorie || 'Allgemein'}</div>
+                    <div class="card-header">
+                        <span class="card-cat">${r.kategorie || 'Neu'}</span>
+                        <span class="card-rating">${stars}</span>
+                    </div>
                     <h2 class="card-title">${r.name}</h2>
-                    <div class="card-ingredients">${zutatenNamen}</div>
                     <div class="card-meta">
-                        <div>Dauer<b>${r.dauer}m</b></div>
-                        <div>Protein<b>${r.protein}g</b></div>
-                        <div>Energie<b>${r.kalorien} kcal</b></div>
+                        <div>Dauer<b>${r.dauer || 0}m</b></div>
+                        <div>Protein<b>${r.protein || 0}g</b></div>
+                        <div>Level<b>${r.schwierigkeit || 1}/3</b></div>
                     </div>
                 </div>
             `;
-            card.onclick = () => window.openDetail(r);
+            // Drag-Check, damit Klicks nicht beim Pannen ausgelöst werden
+            card.onpointerdown = () => card.setAttribute('data-drag', 'false');
+            card.onpointermove = () => card.setAttribute('data-drag', 'true');
+            card.onclick = (e) => { if (card.getAttribute('data-drag') === 'false') window.openDetail(r); };
+            
             container.appendChild(card);
         });
     }
 
-    // 3. DETAIL ANSICHT & PORTIONS-RECHNER
+    // --- FILTER LOGIK ---
+    window.toggleFilter = () => document.getElementById('filter-sidebar').classList.toggle('open');
+    
+    window.applyFilters = function() {
+        const search = document.getElementById('f-search').value.toLowerCase();
+        const diff = document.getElementById('f-diff').value;
+        const maxTime = parseInt(document.getElementById('f-time').value);
+        const minProt = parseInt(document.getElementById('f-prot').value);
+        const minRating = parseInt(document.getElementById('f-rating').value);
+
+        window.recipes.forEach(r => {
+            const el = document.getElementById(`card-${r.id}`);
+            if(!el) return;
+
+            const ingString = (r.zutaten || []).map(z => z.name).join(' ').toLowerCase();
+            const matchSearch = r.name.toLowerCase().includes(search) || ingString.includes(search);
+            const matchDiff = diff === 'all' || parseInt(r.schwierigkeit) === parseInt(diff);
+            const matchTime = parseInt(r.dauer || 0) <= maxTime;
+            const matchProt = parseInt(r.protein || 0) >= minProt;
+            const matchRating = parseInt(r.rating || 0) >= minRating;
+
+            if (matchSearch && matchDiff && matchTime && matchProt && matchRating) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+    }
+
+    // --- DETAIL & RECHNER ---
     window.openDetail = function(r) {
         const overlay = document.getElementById('detail-overlay');
         const content = document.getElementById('detail-content');
-        
-        let initialServings = r.basisPortionen || 2;
+        let currentServings = r.basisPortionen || 2;
 
-        function renderDetailHtml(currentServings) {
-            // Zutaten dynamisch berechnen
+        window.renderDetailView = function(servings) {
             let zutatenHtml = '';
             (r.zutaten || []).forEach(z => {
-                const calculatedAmount = (z.menge / initialServings) * currentServings;
-                // Formatiere Zahlen (z.B. 1.5 statt 1.500)
-                const displayAmount = calculatedAmount % 1 === 0 ? calculatedAmount : calculatedAmount.toFixed(1);
-                zutatenHtml += `
-                    <div class="ing-list-item">
-                        <span class="ing-amount">${displayAmount} ${z.einheit}</span>
-                        <span class="ing-name">${z.name}</span>
-                    </div>`;
+                const amount = ((z.menge / (r.basisPortionen || 2)) * servings);
+                const display = amount % 1 === 0 ? amount : amount.toFixed(1);
+                zutatenHtml += `<div style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid #eee; font-size:18px;"><b style="width:120px;">${display} ${z.einheit}</b><span>${z.name}</span></div>`;
             });
 
-            // Nährwerte berechnen
-            const calcProt = ((r.protein / initialServings) * currentServings).toFixed(0);
-            const calcCal = ((r.kalorien / initialServings) * currentServings).toFixed(0);
+            const p = ((r.protein / (r.basisPortionen||2)) * servings).toFixed(0);
+            const c = ((r.kalorien / (r.basisPortionen||2)) * servings).toFixed(0);
+            const imgSrc = r.bildBase64 || 'https://images.unsplash.com/photo-1495195134817-a1a2807facx1?auto=format&fit=crop&q=80&w=800';
 
-            return `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start;">
+            content.innerHTML = `
+                <div class="detail-grid">
                     <div>
-                        <div style="color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">${r.kategorie}</div>
-                        <h1 style="font-size: 64px; margin: 10px 0 30px 0; letter-spacing: -2px; line-height: 0.9;">${r.name}</h1>
+                        <div style="color:var(--accent); font-weight:800; text-transform:uppercase; margin-bottom:10px;">${r.kategorie}</div>
+                        <h1 style="font-size:64px; margin:0 0 20px; line-height:0.9; letter-spacing:-2px;">${r.name}</h1>
                         
-                        <div style="background: #f9f9f9; padding: 25px; border-radius: 20px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between;">
+                        <div class="servings-box">
                             <div>
-                                <label style="font-size: 11px; font-weight: 800; color: #888; text-transform: uppercase;">Portionen</label><br>
-                                <input type="number" id="detail-servings" value="${currentServings}" min="1" style="font-size: 24px; padding: 5px; width: 70px; background: transparent; border: none; border-bottom: 2px solid #000; border-radius: 0;">
+                                <div style="font-size:11px; font-weight:800; color:#888; text-transform:uppercase;">Portionen</div>
+                                <input type="number" class="servings-input" value="${servings}" min="1" oninput="window.renderDetailView(this.value); this.focus();">
                             </div>
-                            <div style="text-align: right; font-weight: 600; font-size: 14px;">
-                                Total Protein: <b style="font-size: 18px;">${calcProt}g</b><br>
-                                Total Energie: <b style="font-size: 18px;">${calcCal} kcal</b>
+                            <div style="text-align:right;">
+                                <div>Protein: <b>${p}g</b></div>
+                                <div>Energie: <b>${c} kcal</b></div>
                             </div>
                         </div>
 
-                        <h3 style="font-size: 24px; margin-bottom: 20px;">Zutaten</h3>
-                        <div style="margin-bottom: 50px;">${zutatenHtml}</div>
+                        <h3 style="font-size:24px;">Zutaten</h3>
+                        <div style="margin-bottom:40px;">${zutatenHtml}</div>
+                        
+                        <h3 style="font-size:24px;">Zubereitung</h3>
+                        <div style="font-size:18px; line-height:1.6; white-space:pre-wrap;">${r.anleitung}</div>
 
-                        <h3 style="font-size: 24px; margin-bottom: 20px;">Zubereitung</h3>
-                        <div style="font-size: 18px; line-height: 1.6; color: #444; white-space: pre-wrap;">${r.anleitung}</div>
+                        <div class="action-row">
+                            <button class="btn-edit" onclick="editRecipe('${r.id}')">Bearbeiten</button>
+                            <button class="btn-delete" onclick="deleteRecipe('${r.id}')">Löschen</button>
+                        </div>
                     </div>
-                    <div>
-                        <img src="${r.bildUrl}" style="width: 100%; aspect-ratio: 4/5; object-fit: cover; border-radius: 20px;">
-                    </div>
+                    <img src="${imgSrc}" style="width:100%; border-radius:var(--card-radius);">
                 </div>
             `;
-        }
-
-        content.innerHTML = renderDetailHtml(initialServings);
+        };
+        renderDetailView(currentServings);
         overlay.classList.add('active');
-
-        // Event Listener für dynamisches Neu-Berechnen
-        content.querySelector('#detail-servings').addEventListener('input', (e) => {
-            const newServings = parseFloat(e.target.value) || 1;
-            // Wir überschreiben das HTML, setzen aber den Fokus danach zurück
-            content.innerHTML = renderDetailHtml(newServings);
-            const newInput = content.querySelector('#detail-servings');
-            newInput.focus();
-            
-            // Rekursiver Listener für das neu gerenderte Input
-            newInput.addEventListener('input', arguments.callee);
-        });
     }
 
-    // 4. EDITOR LOGIK
+    // --- CRUD: EDITOR, BILDER, LÖSCHEN ---
     window.openEditor = function() {
-        document.getElementById('ed-ingredients-container').innerHTML = '';
-        addIngredientRow(); // Startet mit einer leeren Zutat
+        document.getElementById('ed-title').innerText = "Neues Rezept";
+        document.getElementById('ed-id').value = "";
+        document.querySelectorAll('#editor-overlay input, #editor-overlay textarea').forEach(el => el.value = '');
+        document.getElementById('ed-ingredients').innerHTML = '';
+        document.getElementById('ed-img-preview').style.opacity = '0';
+        document.getElementById('ed-img-base64').value = '';
+        window.addIngredientRow();
         document.getElementById('editor-overlay').classList.add('active');
     }
 
-    window.closeOverlay = function(id) {
-        document.getElementById(id).classList.remove('active');
+    window.editRecipe = function(id) {
+        const r = window.recipes.find(rec => rec.id === id);
+        if(!r) return;
+        
+        closeOverlay('detail-overlay');
+        document.getElementById('ed-title').innerText = "Rezept bearbeiten";
+        document.getElementById('ed-id').value = r.id;
+        document.getElementById('ed-name').value = r.name || '';
+        document.getElementById('ed-cat').value = r.kategorie || '';
+        document.getElementById('ed-time').value = r.dauer || '';
+        document.getElementById('ed-diff').value = r.schwierigkeit || 1;
+        document.getElementById('ed-rating').value = r.rating || 5;
+        document.getElementById('ed-servings').value = r.basisPortionen || 2;
+        document.getElementById('ed-cal').value = r.kalorien || '';
+        document.getElementById('ed-prot').value = r.protein || '';
+        document.getElementById('ed-instructions').value = r.anleitung || '';
+        
+        if(r.bildBase64) {
+            document.getElementById('ed-img-preview').src = r.bildBase64;
+            document.getElementById('ed-img-preview').style.opacity = '1';
+            document.getElementById('ed-img-base64').value = r.bildBase64;
+        }
+
+        const ingContainer = document.getElementById('ed-ingredients');
+        ingContainer.innerHTML = '';
+        (r.zutaten || []).forEach(z => window.addIngredientRow(z.menge, z.einheit, z.name));
+        if(!r.zutaten || r.zutaten.length === 0) window.addIngredientRow();
+
+        document.getElementById('editor-overlay').classList.add('active');
     }
 
-    window.addIngredientRow = function() {
-        const container = document.getElementById('ed-ingredients-container');
-        const row = document.createElement('div');
-        row.className = 'ing-row';
-        row.innerHTML = `
-            <input type="number" class="ing-amount" placeholder="Menge" step="0.1">
-            <input type="text" class="unit" placeholder="Einheit (g, ml, EL)">
-            <input type="text" class="name" placeholder="Zutat (z.B. Kartoffeln)">
-        `;
-        container.appendChild(row);
+    window.deleteRecipe = async function(id) {
+        if(confirm("Rezept wirklich löschen?")) {
+            await deleteDoc(doc(db, "recipes", id));
+            closeOverlay('detail-overlay');
+            window.loadRecipes();
+        }
+    }
+
+    window.addIngredientRow = function(m = '', e = '', n = '') {
+        const container = document.getElementById('ed-ingredients');
+        const div = document.createElement('div');
+        div.className = 'ing-row';
+        div.innerHTML = `<input type="number" class="amount" placeholder="Menge" value="${m}"><input type="text" class="unit" placeholder="Einheit" value="${e}"><input type="text" class="name" placeholder="Name" value="${n}">`;
+        container.appendChild(div);
+    }
+
+    // BILD KOMPRIMIERUNG (Browser-Side Magic)
+    window.handleImageUpload = function(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // Als WebP komprimieren (spart enorm Speicher in Firestore)
+                const base64 = canvas.toDataURL('image/webp', 0.7);
+                document.getElementById('ed-img-preview').src = base64;
+                document.getElementById('ed-img-preview').style.opacity = '1';
+                document.getElementById('ed-img-base64').value = base64;
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
     window.saveRecipe = async function() {
-        const btn = document.querySelector('#editor-overlay .btn-black');
-        btn.innerText = "Speichere...";
+        const btn = document.getElementById('ed-save-btn');
+        btn.innerText = "Wird gespeichert...";
         
-        // Zutaten sammeln
+        const id = document.getElementById('ed-id').value;
         let zutaten = [];
         document.querySelectorAll('.ing-row').forEach(row => {
-            const menge = parseFloat(row.querySelector('.ing-amount').value);
+            const menge = parseFloat(row.querySelector('.amount').value);
             const einheit = row.querySelector('.unit').value.trim();
             const name = row.querySelector('.name').value.trim();
-            if(name !== "" && !isNaN(menge)) {
-                zutaten.push({ menge, einheit, name });
-            }
+            if(name) zutaten.push({ menge: isNaN(menge)?0:menge, einheit, name });
         });
 
-        // Wo soll die Karte spawnen? Genau dort, wo die Kamera gerade hinschaut!
-        const spawnX = (window.innerWidth / 2) / currentScale + camX;
-        const spawnY = (window.innerHeight / 2) / currentScale + camY;
+        const spawnX = (window.innerWidth / 2) / currentScale + camX - 170;
+        const spawnY = (window.innerHeight / 2) / currentScale + camY - 200;
 
-        const newRecipe = {
-            name: document.getElementById('ed-name').value || "Unbenanntes Rezept",
-            kategorie: document.getElementById('ed-cat').value || "Allgemein",
-            bildUrl: document.getElementById('ed-img').value || "https://images.unsplash.com/photo-1495195134817-a1a2807facx1?auto=format&fit=crop&q=80&w=800",
+        const data = {
+            name: document.getElementById('ed-name').value || "Neues Rezept",
+            kategorie: document.getElementById('ed-cat').value,
+            bildBase64: document.getElementById('ed-img-base64').value,
             dauer: parseInt(document.getElementById('ed-time').value) || 0,
+            schwierigkeit: parseInt(document.getElementById('ed-diff').value) || 1,
+            rating: parseInt(document.getElementById('ed-rating').value) || 5,
             kalorien: parseInt(document.getElementById('ed-cal').value) || 0,
             protein: parseInt(document.getElementById('ed-prot').value) || 0,
-            basisPortionen: parseInt(document.getElementById('ed-base-servings').value) || 2,
-            anleitung: document.getElementById('ed-instructions').value || "",
-            zutaten: zutaten,
-            xPos: spawnX - 150, // -150 um es mittig zu zentrieren (Karte ist 300 breit)
-            yPos: spawnY - 150
+            basisPortionen: parseInt(document.getElementById('ed-servings').value) || 2,
+            anleitung: document.getElementById('ed-instructions').value,
+            zutaten: zutaten
         };
 
         try {
-            await addDoc(collection(db, "recipes"), newRecipe);
-            window.closeOverlay('editor-overlay');
-            
-            // Felder leeren
-            document.querySelectorAll('#editor-overlay input, #editor-overlay textarea').forEach(el => el.value = '');
-            
-            // Rezepte neu laden (wird sofort auf Canvas sichtbar)
+            if(id) {
+                await updateDoc(doc(db, "recipes", id), data);
+            } else {
+                data.xPos = spawnX;
+                data.yPos = spawnY;
+                await addDoc(collection(db, "recipes"), data);
+            }
+            closeOverlay('editor-overlay');
             window.loadRecipes();
         } catch(e) {
-            alert("Fehler beim Speichern: " + e.message);
+            alert("Fehler: " + e.message);
         } finally {
             btn.innerText = "REZEPT SPEICHERN";
         }
     }
 
-    // 5. PHYSICS & PANNING ENGINE
+    window.closeOverlay = (id) => document.getElementById(id).classList.remove('active');
+
+    // --- PHYSICS ENGINE ---
     let isDragging = false, startX, startY, scrollX, scrollY;
     const vp = document.getElementById('viewport');
     
     vp.onpointerdown = (e) => {
-        isDragging = true;
-        startX = e.pageX; startY = e.pageY;
-        scrollX = targetCamX; scrollY = targetCamY;
+        if(e.target.closest('.recipe-card')) return; // Kein Pannen beim Klicken auf Karte
+        isDragging = true; startX = e.pageX; startY = e.pageY; scrollX = targetCamX; scrollY = targetCamY;
     };
-
     window.onpointermove = (e) => {
         if (!isDragging) return;
-        targetCamX = scrollX - (e.pageX - startX) / currentScale;
-        targetCamY = scrollY - (e.pageY - startY) / currentScale;
+        targetCamX = scrollX - (e.pageX - startX) / currentScale; targetCamY = scrollY - (e.pageY - startY) / currentScale;
     };
-
     window.onpointerup = () => isDragging = false;
     
-    // Smooth Zoom
     window.onwheel = (e) => {
-        if(document.getElementById('detail-overlay').classList.contains('active') || 
-           document.getElementById('editor-overlay').classList.contains('active')) return;
-        currentScale = Math.min(Math.max(0.3, currentScale - e.deltaY * 0.001), 2);
+        if(document.querySelector('.overlay.active') || document.getElementById('filter-sidebar').classList.contains('open')) return;
+        currentScale = Math.min(Math.max(0.2, currentScale - e.deltaY * 0.001), 2);
     };
 
     function animate() {
-        camX += (targetCamX - camX) * 0.1;
-        camY += (targetCamY - camY) * 0.1;
-        
+        camX += (targetCamX - camX) * 0.1; camY += (targetCamY - camY) * 0.1;
         const offsetX = (window.innerWidth / 2) - (camX * currentScale);
         const offsetY = (window.innerHeight / 2) - (camY * currentScale);
-
         document.getElementById('canvas').style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0) scale(${currentScale})`;
         requestAnimationFrame(animate);
     }
 
-    // Init App
     window.loadRecipes();
     animate();
-
 </script>
 </body>
 </html>
